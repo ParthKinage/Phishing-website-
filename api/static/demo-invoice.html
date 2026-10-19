@@ -1,0 +1,43 @@
+<!doctype html>
+<!--
+  HARMLESS DEMO PAGE for the course project ("fake invoice" pattern).
+  No real brand. The form's mailto: action is the classic "submitting to
+  e-mail" phishing sign; the address is on the reserved example.net domain,
+  and the onsubmit handler stops anything being sent.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invoice #88421 ready (DEMO - not a real site)</title>
+<link rel="icon" href="https://img.example.net/favicon.ico">
+<script src="https://js.example.org/track.js"></script>
+<script src="https://js.example.org/popup.js"></script>
+<meta property="og:image" content="https://img.example.net/og.png">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 460px; margin: 40px auto; padding: 0 16px; }
+  .banner { background: #fff3cd; border: 1px solid #e0b100; padding: 10px; border-radius: 6px; }
+  input { display: block; width: 100%; margin: 8px 0; padding: 8px; }
+</style>
+</head>
+<body>
+  <p class="banner"><strong>Demo page.</strong> Fake page for testing the phishing
+     detector. Not a real company; the form sends nothing.</p>
+  <img src="https://img.example.net/logo.png" alt="">
+  <h1>Your invoice is ready</h1>
+  <p>Payment of $1,249.00 failed. Update your card to avoid account closure.</p>
+  <form action="mailto:billing@example.net" method="post" onsubmit="return false">
+    <input name="card" placeholder="Card number" autocomplete="off">
+    <input name="exp" placeholder="MM/YY" autocomplete="off">
+    <input name="cvv" placeholder="CVV" autocomplete="off">
+    <button type="submit">Update payment</button>
+  </form>
+  <p>
+    <a href="https://support.example.org/" onmouseover="window.status='https://www.example.com/billing'; return true">Billing help</a> ·
+    <a href="https://www.example.org/terms">Terms</a> ·
+    <a href="https://www.example.net/privacy">Privacy</a> ·
+    <a href="#">Contact</a>
+  </p>
+  <img src="https://img.example.net/badge1.png" alt="">
+  <img src="https://img.example.net/badge2.png" alt="">
+</body>
+</html>

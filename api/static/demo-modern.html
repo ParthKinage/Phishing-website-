@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  HARMLESS DEMO PAGE for the course project ("modern phishing kit" pattern).
+  Modern phishing pages often look technically clean: everything served from
+  one domain, a normal form handler, no old tricks. This page exists to show
+  the detector's main limitation honestly. No real brand; the form sends nothing.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in (DEMO - not a real site)</title>
+<link rel="icon" href="/static/favicon.ico">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 400px; margin: 40px auto; padding: 0 16px; }
+  .banner { background: #fff3cd; border: 1px solid #e0b100; padding: 10px; border-radius: 6px; }
+  input { display: block; width: 100%; margin: 8px 0; padding: 8px; }
+</style>
+</head>
+<body>
+  <p class="banner"><strong>Demo page.</strong> Fake page for testing the phishing
+     detector. Not a real company; the form sends nothing.</p>
+  <h1>Sign in to your account</h1>
+  <form action="/session" method="post" onsubmit="return false">
+    <input name="email" placeholder="Email" autocomplete="off">
+    <input name="password" type="password" placeholder="Password" autocomplete="off">
+    <button type="submit">Sign in</button>
+  </form>
+  <p><a href="/help">Help</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·
+     <a href="/signup">Create account</a></p>
+</body>
+</html>

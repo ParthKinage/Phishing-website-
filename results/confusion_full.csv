@@ -1,0 +1,5 @@
+model,tn,fp,fn,tp
+decision_tree,1200,31,42,938
+random_forest,1212,19,32,948
+svm,1209,22,32,948
+xgboost,1208,23,30,950

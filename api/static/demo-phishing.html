@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  HARMLESS DEMO PAGE for the course project. It imitates the *structure* of a
+  phishing page (no real brand) so the detector has something to flag:
+  empty form handler, links that go nowhere or off-site, external scripts,
+  a hidden iframe and disabled right-click. The form submits nowhere and
+  nothing typed into it is sent or stored.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Account verification (DEMO - not a real site)</title>
+<link rel="icon" href="https://cdn.example.net/favicon.ico">
+<script src="https://cdn.example.net/tracker.js"></script>
+<script src="https://static.example.org/lib.js"></script>
+<link rel="stylesheet" href="https://styles.example.com/main.css">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 40px auto; padding: 0 16px; }
+  .banner { background: #fff3cd; border: 1px solid #e0b100; padding: 10px; border-radius: 6px; }
+  input { display: block; width: 100%; margin: 8px 0; padding: 8px; }
+</style>
+</head>
+<body oncontextmenu="return false">
+  <p class="banner"><strong>Demo page.</strong> This is a fake page for testing the
+     phishing detector. It does not belong to any real company, and the form below
+     sends nothing.</p>
+  <h1>Verify your account</h1>
+  <p>Your account has been suspended. Confirm your details within 24 hours.</p>
+  <form action="about:blank" onsubmit="return false">
+    <input name="user" placeholder="Username" autocomplete="off">
+    <input name="pass" type="password" placeholder="Password" autocomplete="off">
+    <button type="submit">Verify</button>
+  </form>
+  <p>
+    <a href="#">Help</a> · <a href="#">Privacy</a> · <a href="javascript:void(0)">Terms</a> ·
+    <a href="https://www.example.com/">Home</a>
+  </p>
+  <img src="https://images.example.net/logo.png" alt="">
+  <iframe src="about:blank" width="0" height="0" frameborder="0"></iframe>
+</body>
+</html>

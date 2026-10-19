@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phishing Detector</title>
+<style>
+  :root {
+    --bg: #fcfcfb; --surface: #ffffff; --border: #e4e3df;
+    --text: #0b0b0b; --text-2: #52514e; --accent: #2a78d6;
+    --bad: #d03b3b; --bad-bg: #fdeeee; --good: #0a7d0a; --good-bg: #eaf6ea;
+    --warn-bg: #fff6e0; --warn: #8a5a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a19; --surface: #242423; --border: #383835;
+      --text: #ffffff; --text-2: #c3c2b7; --accent: #3987e5;
+      --bad: #f07070; --bad-bg: #3a2020; --good: #5fcf5f; --good-bg: #1d331d;
+      --warn-bg: #3a3018; --warn: #f5c45a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--text-2); margin: 0 0 24px; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; color: var(--text);
+          background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  button { padding: 10px 18px; font: inherit; font-weight: 600; color: #fff;
+           background: var(--accent); border: 0; border-radius: 8px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .card { margin-top: 20px; padding: 16px 18px; background: var(--surface);
+          border: 1px solid var(--border); border-radius: 10px; }
+  .verdict { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .badge { font-size: 1.25rem; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+  .phishing { color: var(--bad); background: var(--bad-bg); }
+  .legitimate { color: var(--good); background: var(--good-bg); }
+  .prob { color: var(--text-2); }
+  .url { color: var(--text-2); word-break: break-all; font-size: .9rem; margin-top: 6px; }
+  .warn { margin-top: 12px; padding: 8px 12px; border-radius: 8px;
+          background: var(--warn-bg); color: var(--warn); font-size: .9rem; }
+  h2 { font-size: 1rem; margin: 18px 0 8px; }
+  ul.reasons { margin: 0; padding-left: 20px; }
+  ul.reasons li { margin: 4px 0; }
+  .up { color: var(--bad); font-weight: 600; }
+  .down { color: var(--good); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-2); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .muted { color: var(--text-2); }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; color: var(--accent); }
+  .error { color: var(--bad); }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Phishing Website Detector</h1>
+  <p class="sub">Course project demo. Enter a URL; the server fetches its static HTML,
+     computes 21 features and scores them with the trained lite model.</p>
+  <form id="f">
+    <input id="url" type="url" required placeholder="https://example.com/login" autocomplete="off">
+    <button id="go" type="submit">Check</button>
+  </form>
+  <div id="out"></div>
+</main>
+<script>
+const out = document.getElementById("out");
+const go = document.getElementById("go");
+
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  for (const c of children) e.append(c);
+  return e;
+}
+
+function render(r) {
+  const card = el("div", { class: "card" });
+  const icon = r.label === "phishing" ? "⚠ " : "✓ ";
+  card.append(el("div", { class: "verdict" },
+    el("span", { class: "badge " + r.label }, icon + (r.label === "phishing" ? "Likely phishing" : "Likely legitimate")),
+    el("span", { class: "prob" }, `Phishing probability ${(r.phishing_probability * 100).toFixed(1)}%`)));
+  card.append(el("div", { class: "url" }, r.final_url !== r.url ? `${r.url} → ${r.final_url}` : r.url));
+  if (r.partial_features) {
+    card.append(el("div", { class: "warn" },
+      `Based on partial features: ${r.unavailable_features.length} could not be computed (${r.errors.join("; ")}).`));
+  }
+  card.append(el("h2", {}, "Top reasons"));
+  const ul = el("ul", { class: "reasons" });
+  for (const x of r.top_reasons) {
+    const up = x.contribution > 0;
+    ul.append(el("li", {},
+      el("span", { class: up ? "up" : "down" }, up ? "▲ towards phishing" : "▼ towards legitimate"),
+      `: ${x.checks}: ${x.meaning}` + (x.available ? "" : " (not computed, filled)")));
+  }
+  card.append(ul);
+
+  const tbody = el("tbody");
+  for (const x of r.features) {
+    tbody.append(el("tr", {},
+      el("td", {}, x.name), el("td", { class: "num" }, String(x.value)), el("td", {}, x.meaning),
+      el("td", { class: "num" }, x.contribution.toFixed(3)),
+      el("td", { class: "muted" }, x.available ? "" : "filled")));
+  }
+  card.append(el("details", {}, el("summary", {}, "All 21 features"),
+    el("div", { class: "table-wrap" }, el("table", {},
+      el("thead", {}, el("tr", {}, ...["Feature", "Value", "Meaning", "Contribution", ""].map(h => el("th", {}, h)))),
+      tbody))));
+  card.append(el("p", { class: "muted" },
+    `Model: ${r.model}. Contributions: ${r.explanation_method === "shap" ? "SHAP values (log-odds; positive = towards phishing)" : "occlusion"}.`));
+  out.replaceChildren(card);
+}
+
+document.getElementById("f").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  go.disabled = true;
+  out.replaceChildren(el("div", { class: "card muted" }, "Fetching and analysing the page…"));
+  try {
+    const res = await fetch("/predict", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: document.getElementById("url").value.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      const msg = Array.isArray(body.detail) ? body.detail.map(d => d.msg).join("; ") : body.detail;
+      throw new Error(msg || res.statusText);
+    }
+    render(body);
+  } catch (e) {
+    out.replaceChildren(el("div", { class: "card error" }, "Error: " + e.message));
+  } finally {
+    go.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

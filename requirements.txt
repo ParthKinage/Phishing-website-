@@ -1,0 +1,19 @@
+# Tested with Python 3.13 on Windows 11 (CPU only).
+# Versions are the ones the results in report.md were produced with.
+pandas==3.0.6
+numpy==2.5.3
+scipy==1.18.1
+scikit-learn==1.9.1
+xgboost==3.4.1
+shap==0.53.0
+matplotlib==3.11.2
+joblib==1.6.0
+ucimlrepo==0.0.7
+requests==2.34.2
+beautifulsoup4==4.15.0
+tldextract==5.4.0
+fastapi==0.143.0
+pydantic==2.14.0
+uvicorn==0.54.0
+httpx==0.28.1
+pytest==9.1.1

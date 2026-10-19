@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phishing check</title>
+<style>
+  :root {
+    --bg: #fcfcfb; --text: #0b0b0b; --text-2: #52514e; --border: #e4e3df;
+    --bad: #d03b3b; --bad-bg: #fdeeee; --good: #0a7d0a; --good-bg: #eaf6ea;
+    --warn: #8a5a00; --warn-bg: #fff6e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a19; --text: #ffffff; --text-2: #c3c2b7; --border: #383835;
+      --bad: #f07070; --bad-bg: #3a2020; --good: #5fcf5f; --good-bg: #1d331d;
+      --warn: #f5c45a; --warn-bg: #3a3018;
+    }
+  }
+  body { width: 340px; margin: 0; padding: 14px 16px; background: var(--bg); color: var(--text);
+         font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1 { font-size: 14px; margin: 0 0 8px; }
+  .url { color: var(--text-2); word-break: break-all; font-size: 12px; margin-bottom: 10px; }
+  .badge { display: inline-block; font-size: 16px; font-weight: 700; padding: 3px 10px; border-radius: 7px; }
+  .phishing { color: var(--bad); background: var(--bad-bg); }
+  .legitimate { color: var(--good); background: var(--good-bg); }
+  .prob { color: var(--text-2); margin-left: 6px; }
+  .warn { margin-top: 10px; padding: 6px 9px; border-radius: 7px; background: var(--warn-bg); color: var(--warn); }
+  h2 { font-size: 12px; margin: 12px 0 4px; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 3px 0; }
+  .up { color: var(--bad); font-weight: 600; }
+  .down { color: var(--good); font-weight: 600; }
+  .error { color: var(--bad); }
+  .muted { color: var(--text-2); }
+  code { font-size: 11px; background: var(--border); padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>Phishing check</h1>
+  <div id="url" class="url"></div>
+  <div id="out" class="muted">Checking&hellip;</div>
+  <script src="popup.js"></script>
+</body>
+</html>

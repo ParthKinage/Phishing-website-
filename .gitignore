@@ -1,0 +1,14 @@
+# Raw dataset download cache (re-created by `python -m src.data`)
+data/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Colab upload bundle (re-create it, see README)
+phishing_project.zip
+
+# Not part of this project
+stock-trend-prediction/
+# Local editor/launcher settings
+.claude/

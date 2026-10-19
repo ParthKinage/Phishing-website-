@@ -1,0 +1,8 @@
+{
+  "run_at": "2026-10-10T20:59",
+  "n_sites": 20,
+  "n_partial": 0,
+  "n_flagged_phishing": 0,
+  "flagged": [],
+  "mean_phishing_probability": 1.6903008952340314e-05
+}

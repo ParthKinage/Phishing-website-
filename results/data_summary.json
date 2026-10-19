@@ -1,0 +1,11 @@
+{
+  "rows": 11055,
+  "features": 30,
+  "phishing": 4898,
+  "legitimate": 6157,
+  "phishing_share": 0.4431,
+  "duplicate_rows": 5206,
+  "unique_rows": 5849,
+  "duplicate_feature_vectors": 5270,
+  "conflicting_feature_vectors": 64
+}

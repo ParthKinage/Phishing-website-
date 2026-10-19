@@ -1,0 +1,19 @@
+feature_set,added,cv_accuracy,cv_f1,share_of_gap_recovered
+lite (21),,0.9503620676865779,0.9434079571042817,0.0
+lite + 1,domain_registration_length,0.9502487536737527,0.9432782519950231,-0.00576329599129902
+lite + 1,abnormal_url,0.9505882480835096,0.9436120912831767,0.009070465316574978
+lite + 1,popupwindow,0.9495706601116769,0.9425524719758084,-0.03801248878883354
+lite + 1,age_of_domain,0.9509274867054271,0.9442857454471307,0.03900350623401536
+lite + 1,web_traffic,0.9535280177209815,0.9474971862946285,0.18170015302361267
+lite + 1,page_rank,0.9519446270485409,0.9452047257642701,0.07983733003730824
+lite + 1,google_index,0.9492312935958397,0.942177809874319,-0.054660164427429415
+lite + 1,links_pointing_to_page,0.9542067507526557,0.94802548553305,0.20517451652714025
+lite + 1,statistical_report,0.9501358872896464,0.9432765853306286,-0.005837352289301013
+lite + top 2,"web_traffic, links_pointing_to_page",0.9590685102148873,0.9535629966191994,0.4512273946828799
+lite + top 3,"web_traffic, links_pointing_to_page, age_of_domain",0.9624608964340616,0.9575627328223174,0.6289510306865116
+lite + top 4,"web_traffic, links_pointing_to_page, age_of_domain, google_index",0.9648352470526846,0.9601930381884559,0.7458255968405455
+lite + top 5,"web_traffic, links_pointing_to_page, age_of_domain, google_index, domain_registration_length",0.9656265267336659,0.9610640182148231,0.7845265834335737
+lite + top 6,"web_traffic, links_pointing_to_page, age_of_domain, google_index, domain_registration_length, page_rank",0.9689052792052161,0.9647548678241584,0.948525202143054
+lite + top 7,"web_traffic, links_pointing_to_page, age_of_domain, google_index, domain_registration_length, page_rank, statistical_report",0.9698100647399022,0.9657652538659454,0.9934205332335665
+lite + top 8,"web_traffic, links_pointing_to_page, age_of_domain, google_index, domain_registration_length, page_rank, statistical_report, popupwindow",0.9689054710460955,0.964755265356332,0.9485428660238043
+full (30),all 9,0.9699229950709682,0.9659133272005601,1.0
