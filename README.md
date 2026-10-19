@@ -159,10 +159,21 @@ The online version runs in **public mode** (`PHISHING_PUBLIC=1`):
 - the fake phishing test pages are not deployed;
 - each client is limited to 20 checks per minute.
 
-The Vercel project uses `deploy/vercel` as its root directory, and every push
-to `main` redeploys it. After retraining or changing `api/` or
-`src/extract.py`, re-run the build command above and commit the result.
-The Chrome extension still talks to the local API at `127.0.0.1:8000`.
+Live at **https://phishing-website-detector-wheat.vercel.app** (Vercel project
+`phishing-website-detector`). It is deployed from the `deploy/vercel` folder with
+the Vercel CLI, not on every git push. After retraining or changing `api/` or
+`src/extract.py`, rebuild the bundle (command above), then redeploy:
+
+```bash
+cd deploy\vercel
+```
+
+```bash
+npx vercel deploy --prod --yes
+```
+
+The first deploy on a new computer needs `npx vercel login` (approved in the
+browser). The Chrome extension still talks to the local API at `127.0.0.1:8000`.
 
 ## Demo notebook (Google Colab)
 

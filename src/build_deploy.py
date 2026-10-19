@@ -62,8 +62,14 @@ def main():
     if not native:
         raise SystemExit("The served model has no native XGBoost export; the slim "
                          "deployment needs it (retrain with python -m src.train).")
+    # Rebuild from scratch, but keep the Vercel CLI's link (.vercel/), its
+    # local token file (.env.local) and the .gitignore it created.
+    keep = {".vercel", ".env.local", ".gitignore"}
     if OUT.exists():
-        shutil.rmtree(OUT)
+        for p in OUT.iterdir():
+            if p.name in keep:
+                continue
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
     for rel in COPY + [f"models/{native}"]:
         dest = OUT / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -72,6 +78,11 @@ def main():
     (OUT / "requirements.txt").write_text(REQUIREMENTS)
     (OUT / ".python-version").write_text("3.13\n")
     (OUT / "README.md").write_text(README)
+    # Never upload local secrets or the CLI link with a deployment.
+    (OUT / ".vercelignore").write_text(".env*\n.vercel\nREADME.md\n")
+    gitignore = OUT / ".gitignore"
+    lines = gitignore.read_text().split() if gitignore.exists() else []
+    gitignore.write_text("\n".join(dict.fromkeys(lines + [".vercel", ".env*"])) + "\n")
     files = sorted(p.relative_to(OUT).as_posix() for p in OUT.rglob("*") if p.is_file())
     print(f"Wrote {len(files)} files to {OUT}:")
     for f in files:
