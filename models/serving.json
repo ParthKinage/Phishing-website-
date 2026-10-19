@@ -50,5 +50,6 @@
     "iframe": 1,
     "dnsrecord": 1
   },
-  "threshold": 0.5
+  "threshold": 0.5,
+  "native_model_file": "lite_xgboost.json"
 }

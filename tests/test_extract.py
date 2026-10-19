@@ -1,5 +1,7 @@
 """Extractor tests. No network: page features use HTML fixtures, and
 extract() gets fake fetch/DNS functions."""
+import io
+
 import pytest
 import requests
 
@@ -283,3 +285,44 @@ def test_to_vector_fills_unavailable_features():
 def test_extract_rejects_non_http(url):
     with pytest.raises(ValueError):
         extract(url, fetcher=fake_fetch(), resolver=lambda h: True)
+
+
+# ------------------------------------------------- public mode (SSRF guard)
+
+from src import extract as extract_module  # noqa: E402
+
+
+@pytest.mark.parametrize("host, private", [
+    ("127.0.0.1", True),          # loopback
+    ("10.1.2.3", True),           # private network
+    ("192.168.0.10", True),
+    ("169.254.169.254", True),    # cloud metadata service
+    ("[::1]", True),
+    ("8.8.8.8", False),           # public
+])
+def test_resolves_to_private(host, private):
+    assert extract_module.resolves_to_private(host) is private
+
+
+@pytest.mark.parametrize("url", ["http://127.0.0.1:8000/admin", "http://169.254.169.254/latest/meta-data/"])
+def test_extract_refuses_private_addresses_in_public_mode(url):
+    with pytest.raises(ValueError, match="private or internal"):
+        extract(url, fetcher=fake_fetch(), resolver=lambda h: True, block_private=True)
+
+
+def test_extract_allows_private_addresses_locally():
+    r = extract("http://127.0.0.1:8000/demo", fetcher=fake_fetch(), resolver=lambda h: True)
+    assert r["features"]["having_ip_address"] == -1
+
+
+def test_fetch_blocks_redirect_to_private_address(monkeypatch):
+    def fake_get(self, url, **kwargs):
+        resp = requests.Response()
+        resp.status_code = 302
+        resp.raw = io.BytesIO(b"")
+        resp.headers["Location"] = "http://127.0.0.1/secret"
+        resp.url = url
+        return resp
+    monkeypatch.setattr(requests.Session, "get", fake_get)
+    with pytest.raises(extract_module.BlockedAddress):
+        extract_module.fetch("http://8.8.8.8/", block_private=True)

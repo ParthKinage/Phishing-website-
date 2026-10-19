@@ -24,7 +24,7 @@ def client(monkeypatch):
                 "cert_valid": True, "is_html": True}
 
     monkeypatch.setattr(extractor, "extract",
-                        lambda url: real_extract(url, fetcher=fake_fetch, resolver=lambda h: True))
+                        lambda url, **kw: real_extract(url, fetcher=fake_fetch, resolver=lambda h: True))
     with TestClient(main.app) as c:   # runs the startup hook that loads the model
         yield c
 
@@ -62,7 +62,7 @@ def test_demo_phishing_page_is_flagged(client, monkeypatch):
     page = client.get("/demo/account-verify")
     assert page.status_code == 200
     # Feed the demo page's own HTML through the extractor (no network).
-    monkeypatch.setattr(extractor, "extract", lambda url: REAL_EXTRACT(
+    monkeypatch.setattr(extractor, "extract", lambda url, **kw: REAL_EXTRACT(
         url, resolver=lambda h: True,
         fetcher=lambda u: {"html": page.text, "final_url": u, "n_redirects": 0,
                            "cert_valid": True, "is_html": True}))
@@ -104,3 +104,39 @@ def test_cors_rejects_other_origins(client):
         "Access-Control-Request-Method": "POST",
     })
     assert "access-control-allow-origin" not in r.headers
+
+
+# --------------------------------------------------------------- public mode
+
+def test_public_mode_hides_demo_pages(client, monkeypatch):
+    monkeypatch.setattr(main, "PUBLIC", True)
+    assert client.get("/demo/account-verify").status_code == 404
+
+
+def test_public_mode_refuses_private_addresses(client, monkeypatch):
+    monkeypatch.setattr(main, "PUBLIC", True)
+    monkeypatch.setattr(extractor, "extract", REAL_EXTRACT)  # the real check, no fake
+    r = client.post("/predict", json={"url": "http://169.254.169.254/latest/meta-data/"})
+    assert r.status_code == 422
+    assert "private or internal" in r.json()["detail"]
+
+
+def test_public_mode_rate_limit(client, monkeypatch):
+    monkeypatch.setattr(main, "PUBLIC", True)
+    monkeypatch.setattr(main, "RATE_LIMIT", (3, 60))
+    main._recent.clear()
+    codes = [client.post("/predict", json={"url": "https://example.com/"}).status_code for _ in range(4)]
+    main._recent.clear()
+    assert codes == [200, 200, 200, 429]
+
+
+def test_native_xgboost_matches_joblib_model():
+    import json
+    serving = json.loads((main.MODELS_DIR / "serving.json").read_text())
+    native = main.NativeXGBoost(main.MODELS_DIR / serving["native_model_file"], serving["features"])
+    fallback = main.SklearnModel(main.MODELS_DIR / serving["model_file"], serving)
+    for vector in ([1] * len(LITE), [-1] * len(LITE), list(serving["fill_values"].values())):
+        p1, c1, _ = native.score(vector)
+        p2, c2, _ = fallback.score(vector)
+        assert abs(p1 - p2) < 1e-6
+        assert max(abs(a - b) for a, b in zip(c1, c2)) < 1e-4

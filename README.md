@@ -140,6 +140,30 @@ try-it page to see the detector at work:
 | `http://127.0.0.1:8000/demo/invoice` | fake invoice: card form that e-mails the data, status-bar spoofing | phishing, 99.62% |
 | `http://127.0.0.1:8000/demo/modern-login` | modern kit: clean HTML, everything on one domain | **legitimate, 0.07% (missed)**: shows the model's main limitation |
 
+## Online deployment (Vercel)
+
+`deploy/vercel/` is a slim copy of the API for hosting, generated from the
+project's own code:
+
+```bash
+.venv\Scripts\python -m src.build_deploy
+```
+
+It serves the XGBoost model through XGBoost's own engine
+(`models/lite_xgboost.json`, identical predictions and SHAP values), so it
+needs no pandas, scikit-learn or shap and fits Vercel's function size limit.
+The online version runs in **public mode** (`PHISHING_PUBLIC=1`):
+
+- URLs pointing at private or internal addresses (including through
+  redirects) are refused, so the server cannot be used to probe its own network;
+- the fake phishing test pages are not deployed;
+- each client is limited to 20 checks per minute.
+
+The Vercel project uses `deploy/vercel` as its root directory, and every push
+to `main` redeploys it. After retraining or changing `api/` or
+`src/extract.py`, re-run the build command above and commit the result.
+The Chrome extension still talks to the local API at `127.0.0.1:8000`.
+
 ## Demo notebook (Google Colab)
 
 `demo_colab.ipynb` walks through the dataset, results, feature importance,

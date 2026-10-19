@@ -36,8 +36,8 @@ USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
 # Use the public-suffix snapshot bundled with tldextract: no network access,
-# and the same answer every run.
-_tld = tldextract.TLDExtract(suffix_list_urls=())
+# and the same answer every run. No disk cache (read-only on hosted servers).
+_tld = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
 _dns_pool = ThreadPoolExecutor(max_workers=4)
 
 SHORTENERS = {
@@ -222,24 +222,60 @@ def dns_resolves(host):
         return None
 
 
-def fetch(url):
+class BlockedAddress(requests.RequestException):
+    """The URL, or a redirect it leads to, points at a private or internal address."""
+
+
+def resolves_to_private(host):
+    """True if `host` is, or resolves to, a non-public address (loopback,
+    private network, link-local such as cloud metadata 169.254.169.254, ...).
+    Unresolvable hosts return False: they are handled as `dnsrecord = -1`.
+
+    Used in public mode so the server cannot be made to fetch its own
+    internal network (SSRF). A DNS answer that changes between this check
+    and the fetch (DNS rebinding) is not covered; acceptable for a demo."""
+    future = _dns_pool.submit(socket.getaddrinfo, host.strip("[]"), None)
+    try:
+        infos = future.result(timeout=TIMEOUT)
+    except (TimeoutError, OSError, UnicodeError):
+        return False
+    return any(not ipaddress.ip_address(info[4][0].split("%")[0]).is_global for info in infos)
+
+
+def fetch(url, block_private=False):
     """Download the page (static HTML only, never executes JavaScript).
 
     Returns {"html", "final_url", "n_redirects", "cert_valid", "is_html"}.
-    If the certificate does not validate, the page is fetched again without
-    verification so the HTML features can still be computed.
+    Redirects are followed one hop at a time, so that with block_private=True
+    every hop can be checked against resolves_to_private. If a certificate
+    does not validate, that hop is fetched again without verification so the
+    HTML features can still be computed.
     """
     session = requests.Session()
-    session.max_redirects = MAX_REDIRECTS
-    kwargs = {"timeout": TIMEOUT, "stream": True, "headers": {"User-Agent": USER_AGENT}}
+    kwargs = {"timeout": TIMEOUT, "stream": True, "allow_redirects": False,
+              "headers": {"User-Agent": USER_AGENT}}
     cert_valid = True
-    try:
-        resp = session.get(url, **kwargs)
-    except requests.exceptions.SSLError:
-        cert_valid = False
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", InsecureRequestWarning)
-            resp = session.get(url, verify=False, **kwargs)
+    n_redirects = 0
+    with warnings.catch_warnings():
+        # After a certificate error, later hops are fetched unverified on purpose.
+        warnings.simplefilter("ignore", InsecureRequestWarning)
+        while True:
+            if block_private and resolves_to_private(hostname(url)):
+                raise BlockedAddress(f"{hostname(url)} is a private or internal address")
+            try:
+                resp = session.get(url, verify=cert_valid, **kwargs)
+            except requests.exceptions.SSLError:
+                cert_valid = False
+                resp = session.get(url, verify=False, **kwargs)
+            if not resp.is_redirect:
+                break
+            resp.close()
+            if n_redirects >= MAX_REDIRECTS:
+                raise requests.TooManyRedirects(f"more than {MAX_REDIRECTS} redirects")
+            url = urljoin(url, resp.headers["Location"])
+            if urlparse(url).scheme not in ("http", "https"):
+                raise requests.exceptions.InvalidURL("redirect to a non-http(s) URL")
+            n_redirects += 1
     chunks, size, deadline = [], 0, time.monotonic() + 2 * TIMEOUT
     for chunk in resp.iter_content(64 * 1024):
         chunks.append(chunk)
@@ -250,8 +286,8 @@ def fetch(url):
     content_type = resp.headers.get("Content-Type", "").lower()
     return {
         "html": b"".join(chunks)[:MAX_BYTES].decode(resp.encoding or "utf-8", errors="replace"),
-        "final_url": resp.url,
-        "n_redirects": len(resp.history),
+        "final_url": url,
+        "n_redirects": n_redirects,
         "cert_valid": cert_valid,
         "is_html": "html" in content_type or not content_type,
     }
@@ -259,12 +295,17 @@ def fetch(url):
 
 # ------------------------------------------------------------- put together
 
-def extract(url, fetcher=fetch, resolver=dns_resolves):
+def extract(url, fetcher=fetch, resolver=dns_resolves, block_private=False):
     """URL -> {"features": {name: value or None}, "available": {...},
-    "partial": bool, "final_url", "errors": [...]}, in LITE order."""
+    "partial": bool, "final_url", "errors": [...]}, in LITE order.
+
+    block_private=True (the public deployment) refuses private/internal
+    addresses with a ValueError and makes the fetcher check every redirect."""
     scheme = urlparse(url).scheme.lower()
     if scheme not in ("http", "https") or not hostname(url):
         raise ValueError("only http(s) URLs with a host name are supported")
+    if block_private and resolves_to_private(hostname(url)):
+        raise ValueError("private or internal addresses cannot be checked on the public site")
     values = dict.fromkeys(LITE)
     values.update(url_features(url))
     errors = []
@@ -281,7 +322,9 @@ def extract(url, fetcher=fetch, resolver=dns_resolves):
         errors.append("host name does not resolve; page not fetched")
     else:
         try:
-            page = fetcher(url)
+            page = fetcher(url, block_private=True) if block_private else fetcher(url)
+        except BlockedAddress as e:
+            errors.append(f"page not fetched: {e}")
         except requests.RequestException as e:
             errors.append(f"page fetch failed: {type(e).__name__}")
 

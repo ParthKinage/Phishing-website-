@@ -2,17 +2,23 @@
 
 Run from the project root:
     python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+Public mode (environment variable PHISHING_PUBLIC=1, used only for the
+online deployment) blocks private/internal addresses, hides the fake
+phishing demo pages and rate-limits each client.
 """
 import json
+import os
+import threading
+import time
 import warnings
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
-import joblib
 import numpy as np
-import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
@@ -27,18 +33,94 @@ MODELS_DIR = ROOT / "models"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 TREE_MODELS = {"decision_tree", "random_forest", "xgboost"}
 TOP_REASONS = 5
+PUBLIC = os.environ.get("PHISHING_PUBLIC") == "1"
+RATE_LIMIT = (20, 60)  # public mode: at most 20 predictions per client per 60 s
 
 state = {}
 
 
+class NativeXGBoost:
+    """The served XGBoost model run by XGBoost itself, from its JSON export.
+
+    Needs only xgboost and numpy (no pandas/scikit-learn/shap), which keeps
+    the deployment small. `pred_contribs` is XGBoost's built-in TreeSHAP,
+    so the explanations equal those of the shap package."""
+
+    def __init__(self, path, features):
+        import xgboost as xgb
+        self.xgb, self.features = xgb, features
+        self.booster = xgb.Booster()
+        self.booster.load_model(path)
+
+    def score(self, vector):
+        dm = self.xgb.DMatrix(np.array([vector], dtype=float), feature_names=self.features)
+        proba = float(self.booster.predict(dm)[0])
+        contrib = self.booster.predict(dm, pred_contribs=True)[0, :-1]  # last column = bias
+        return proba, contrib, "shap"
+
+
+class SklearnModel:
+    """Fallback for any saved joblib model (needs pandas, scikit-learn and,
+    for tree models, shap). Non-tree models are explained by occlusion: the
+    change in phishing probability when a feature is replaced by its
+    training-set mode."""
+
+    def __init__(self, path, serving):
+        import joblib
+        import pandas as pd
+        self.pd, self.serving = pd, serving
+        self.model = joblib.load(path)
+        self.explainer = None
+        if serving["model"] in TREE_MODELS:
+            import shap
+            self.explainer = shap.TreeExplainer(self.model)
+
+    def score(self, vector):
+        features = self.serving["features"]
+        row = self.pd.DataFrame([vector], columns=features)
+        proba = float(self.model.predict_proba(row)[0, 1])
+        if self.explainer is not None:
+            values = self.explainer(row).values[0]
+            if values.ndim == 2:  # scikit-learn: one column per class
+                values = values[:, 1]
+            return proba, values, "shap"
+        out = []
+        for f in features:
+            alt = row.copy()
+            alt[f] = self.serving["fill_values"][f]
+            out.append(proba - self.model.predict_proba(alt)[0, 1])
+        return proba, np.array(out), "occlusion"
+
+
 def load_model():
     serving = json.loads((MODELS_DIR / "serving.json").read_text())
-    model = joblib.load(MODELS_DIR / serving["model_file"])
-    explainer = None
-    if serving["model"] in TREE_MODELS:
-        import shap
-        explainer = shap.TreeExplainer(model)
-    state.update(serving=serving, model=model, explainer=explainer)
+    native = serving.get("native_model_file")
+    if native and (MODELS_DIR / native).exists():
+        model = NativeXGBoost(MODELS_DIR / native, serving["features"])
+    else:
+        model = SklearnModel(MODELS_DIR / serving["model_file"], serving)
+    state.update(serving=serving, model=model)
+
+
+_recent = defaultdict(deque)
+_recent_lock = threading.Lock()
+
+
+def check_rate_limit(request: Request):
+    """Public mode only: simple in-memory sliding-window limit per client IP."""
+    if not PUBLIC:
+        return
+    forwarded = request.headers.get("x-forwarded-for", "")
+    client = forwarded.split(",")[0].strip() or (request.client.host if request.client else "?")
+    limit, window = RATE_LIMIT
+    now = time.monotonic()
+    with _recent_lock:
+        q = _recent[client]
+        while q and now - q[0] > window:
+            q.popleft()
+        if len(q) >= limit:
+            raise HTTPException(status_code=429, detail="Too many requests; try again in a minute.")
+        q.append(now)
 
 
 @asynccontextmanager
@@ -76,28 +158,6 @@ def value_label(feature, value):
     return {-1: "phishing-like", 0: "suspicious", 1: "legitimate-like"}[value]
 
 
-def contributions(row):
-    """Per-feature push towards phishing (positive) or legitimate (negative).
-
-    Tree model: per-prediction SHAP values (log-odds units for XGBoost,
-    probability units for scikit-learn trees). Otherwise: occlusion -- the
-    change in phishing probability when the feature is replaced by its
-    training-set mode."""
-    model, serving = state["model"], state["serving"]
-    if state["explainer"] is not None:
-        values = state["explainer"](row).values[0]
-        if values.ndim == 2:  # scikit-learn: one column per class
-            values = values[:, 1]
-        return values, "shap"
-    base = model.predict_proba(row)[0, 1]
-    out = []
-    for f in serving["features"]:
-        alt = row.copy()
-        alt[f] = serving["fill_values"][f]
-        out.append(base - model.predict_proba(alt)[0, 1])
-    return np.array(out), "occlusion"
-
-
 @app.get("/health")
 def health():
     serving = state.get("serving", {})
@@ -106,16 +166,17 @@ def health():
 
 
 @app.post("/predict")
-def predict(req: PredictRequest):
+def predict(req: PredictRequest, request: Request):
+    check_rate_limit(request)
     serving = state["serving"]
     try:
-        result = extractor.extract(req.url)
+        result = extractor.extract(req.url, block_private=PUBLIC)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     vector = extractor.to_vector(result, serving["fill_values"])
-    row = pd.DataFrame([vector], columns=serving["features"])
-    proba = float(state["model"].predict_proba(row)[0, 1])
-    contrib, method = contributions(row)
+    # Contributions: per-prediction SHAP values (log-odds for XGBoost;
+    # positive = towards phishing), or occlusion for non-tree models.
+    proba, contrib, method = state["model"].score(vector)
 
     features = []
     for f, v, c in zip(serving["features"], vector, contrib):
@@ -165,6 +226,8 @@ DEMO_PAGES = {
 
 @app.get("/demo/{name}")
 def demo_page(name: str):
-    if name not in DEMO_PAGES:
+    # Never served by the public deployment: hosted online, fake login forms
+    # could be mistaken for real phishing.
+    if PUBLIC or name not in DEMO_PAGES:
         raise HTTPException(status_code=404, detail="unknown demo page")
     return FileResponse(STATIC_DIR / DEMO_PAGES[name])

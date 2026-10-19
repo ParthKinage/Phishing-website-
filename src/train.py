@@ -165,6 +165,12 @@ def choose_serving_model(lite_records, X_tr):
         "fill_values": fill,
         "threshold": 0.5,
     }
+    if chosen["model"] == "xgboost":
+        # XGBoost's own JSON format: lets the API serve the model with only
+        # xgboost + numpy installed (identical predictions and SHAP values).
+        model = joblib.load(MODELS_DIR / serving["model_file"])
+        model.get_booster().save_model(MODELS_DIR / "lite_xgboost.json")
+        serving["native_model_file"] = "lite_xgboost.json"
     (MODELS_DIR / "serving.json").write_text(json.dumps(serving, indent=2))
     print(f"Serving model: {chosen['model']} -- {reason}")
     return serving
