@@ -184,7 +184,7 @@ own code and saved models.
 
 1. Create the upload bundle (code, models, results; about 12 MB). From the project root:
    ```bash
-   .venv\Scripts\python -c "import zipfile; from pathlib import Path; skip={'.venv','data','__pycache__','.pytest_cache','.claude'}; z=zipfile.ZipFile('phishing_project.zip','w',zipfile.ZIP_DEFLATED); [z.write(p, Path('phishing_project')/p) for p in sorted(Path('.').rglob('*')) if p.is_file() and not skip & set(p.parts) and p.name!='phishing_project.zip']; z.close()"
+   .venv\Scripts\python -c "import zipfile; from pathlib import Path; skip={'.venv','data','__pycache__','.pytest_cache','.claude','stock-trend-prediction','.git','.vercel'}; z=zipfile.ZipFile('phishing_project.zip','w',zipfile.ZIP_DEFLATED); [z.write(p, Path('phishing_project')/p) for p in sorted(Path('.').rglob('*')) if p.is_file() and not skip & set(p.parts) and p.name not in ('phishing_project.zip','.env.local')]; z.close()"
    ```
 2. Open <https://colab.research.google.com>, choose **File → Upload notebook**, and pick `demo_colab.ipynb`.
 3. Run the cells in order. Cell 1a asks you to upload `phishing_project.zip`. Cell 1b installs the pinned libraries; if Colab then asks you to restart the session, do it and continue from cell 1c.
