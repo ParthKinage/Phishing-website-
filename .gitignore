@@ -12,3 +12,8 @@ phishing_project.zip
 stock-trend-prediction/
 # Local editor/launcher settings
 .claude/
+
+# Large generated video (kept locally, not in git)
+Phishing_Project_Demo_Video.mp4
+# Office lock files
+~$*

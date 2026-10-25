@@ -1,0 +1,80 @@
+[title]
+Hello! We are Parth Kinage, Ronak Boddu and Vedangi Pokharkar, from T Y B Tech, Information Technology.
+Our machine learning project, guided by Doctor Kanchan Dhuri, is Phishing Website Detection using Machine Learning.
+
+[problem]
+A phishing website is a fake site that imitates a bank, an email provider or a shop, to steal passwords and card details.
+New phishing sites appear every day and disappear quickly, so blocklists of known bad sites are always behind.
+Our idea is to let a machine learning model learn the warning signs of phishing pages, so it can judge sites it has never seen.
+
+[dataset]
+We used the U C I Phishing Websites dataset: eleven thousand and fifty five websites, each described by thirty features.
+Every feature is coded as minus one for phishing-like, zero for suspicious, or one for legitimate-like. About forty four percent of the sites are phishing.
+During exploratory data analysis we found that forty seven percent of the rows are exact duplicates. We come back to this later, because it affects how honest the results are.
+
+[eda]
+This chart shows the share of phishing sites for each value of eight key features.
+For example, when most of a page's links point nowhere or to other websites, ninety nine percent of the sites are phishing. A valid HTTPS certificate is a strong sign of a legitimate site.
+
+[concepts]
+This is a supervised binary classification problem: the model learns from labelled examples to predict phishing or legitimate.
+We split the data into eighty percent for training and twenty percent for testing, keeping the class balance. The test set is used only once, at the very end.
+To choose each model's settings, we used grid search with five-fold cross-validation on the training data.
+We measure accuracy, precision, recall, F1-score and ROC A U C. Recall on phishing matters most, because a missed phishing site is the costly mistake.
+
+[models]
+We compared four algorithms. A decision tree asks a series of if-then questions.
+A random forest averages hundreds of trees trained on random samples, which is called bagging.
+A support vector machine with an R B F kernel finds the widest margin between the two classes.
+And XGBoost adds small trees one after another, each correcting the mistakes of the previous ones. This is called gradient boosting.
+
+[results]
+Here are the test results. With all thirty features, random forest, S V M and XGBoost all reach about ninety seven point six percent accuracy.
+XGBoost has the best phishing recall and the best ROC A U C. The single decision tree is about one point lower.
+The lite model uses only the twenty one features we can compute for a live website, and reaches about ninety four point six percent.
+
+[honest]
+Because almost half of the rows are duplicates, a copy of a test row can also appear in the training data. So we removed all duplicates and tested again.
+Every model lost between two and four F1 points. That is a more realistic estimate for new websites, and XGBoost held up best.
+
+[explain]
+To understand the models, we used built-in importance, permutation importance and SHAP values.
+They agree: a valid HTTPS certificate, and where the page's links point, are by far the most important signals.
+An ablation study showed that fifteen well-chosen features are almost as good as all thirty.
+
+[gap]
+Nine of the original features can no longer be computed, for example Alexa traffic rank and Google PageRank.
+Our analysis shows that no single missing feature explains the three point gap, but together the site reputation features explain all of it.
+
+[arch]
+This is how the application works. Offline, we train and evaluate the models and save the best lite model, XGBoost.
+Online, a user sends a web address. Our FastAPI service downloads the page, computes the twenty one features, gets a phishing probability from XGBoost, and explains it with SHAP.
+
+[live]
+Now let's see it working. This is our public website, hosted on Vercel.
+We enter the address of a real website, Wikipedia, and click check.
+The model says likely legitimate, and lists the top reasons, such as the valid HTTPS certificate and normal links.
+We can also open the full list of all twenty one features that were computed for this page.
+
+[phish]
+Next, a phishing example. For safety, we built a harmless fake phishing page that runs only on our own computer. Its form sends nothing.
+It asks you to verify your account, its links lead nowhere, and right click is disabled.
+We check this page in our local app.
+The verdict is likely phishing, with ninety nine point five percent probability. The reasons are the links that go nowhere, the missing HTTPS, and images loaded from other sites.
+
+[modern]
+To be honest about limitations, here is a modern, cleanly built fake login page.
+The model calls it legitimate, so it is missed. Its HTML looks clean, and the training data is from twenty fifteen.
+Modern phishing kits look exactly like this, which is why fresher data is our main future work.
+
+[extension]
+We also built a Chrome extension. With one click, it sends the current tab's address to our local service and shows the verdict and the reasons.
+It only asks for the active tab permission and access to our local service, and it collects no data in the background.
+
+[deploy]
+The public version has safety features: it refuses internal network addresses, it does not host the fake test pages, and it limits how often each visitor can check.
+The project has one hundred and eighteen automated tests, and all the code is on GitHub.
+
+[end]
+To conclude: our ensemble models reach about ninety seven point six percent accuracy, and our deployable model gives explained verdicts for real websites.
+In future, we want to train on fresh data and add modern reputation signals. Thank you for watching!

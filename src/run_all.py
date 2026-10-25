@@ -1,10 +1,10 @@
-"""Run the whole offline pipeline: data -> train -> evaluate -> importance.
+"""Run the whole offline pipeline: data (+ EDA) -> train -> evaluate -> importance.
 
 Run: python -m src.run_all
 """
 import time
 
-from src import data, evaluate, importance, train
+from src import data, eda, evaluate, importance, train
 
 
 def main():
@@ -12,6 +12,7 @@ def main():
     print("== 1/4 data ==")
     X, y = data.load()
     data.summarise(X, y)
+    eda.main()
     print("== 2/4 train ==")
     train.main()
     print("== 3/4 evaluate ==")
